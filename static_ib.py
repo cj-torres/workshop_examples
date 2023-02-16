@@ -1,5 +1,7 @@
 import torch
 
+
+LOG2 = torch.log(torch.tensor([2])).item()
 class GaussianSampler(torch.nn.Module):
     """
     Module to sample from multivariate Gaussian distributions.
@@ -154,7 +156,7 @@ class SequentialVariationalIB(torch.nn.Module):
         ce = torch.nn.CrossEntropyLoss()
         # Y contains the target token indices. Shape B x T
         # Y_hat contains distributions
-        ce_loss = ce(y_hat[mask], y[mask])
+        ce_loss = ce(y_hat[mask], y[mask])/LOG2
         return ce_loss
 
     def kl_loss(self, stats, mask):
@@ -176,9 +178,9 @@ class SequentialVariationalIB(torch.nn.Module):
         # z is a standard normal multivariate with the same dimensions as z given x
         z = torch.distributions.multivariate_normal.MultivariateNormal(torch.zeros_like(mu_flat),
                                                                        torch.diag_embed(torch.ones_like(mu_flat)))
-        kld = torch.distributions.kl_divergence(zx_normals, z)
+        kld = torch.distributions.kl_divergence(zx_normals, z) / LOG2
 
-        mi = z.entropy()-zx_normals.entropy()
+        mi = (z.entropy()-zx_normals.entropy())/LOG2
 
         return kld.mean(), mi.mean()
 
@@ -199,7 +201,7 @@ def train(epochs, beta):
         with torch.no_grad():
             y_test_hat, _ = model(anbm.test_input)
             test_loss = model.lm_loss(anbm.test_output, y_test_hat, anbm.test_mask)
-        print("CE Loss: {} KL Loss: {} Test Loss: {} MI: {}".format(ce_loss.item(), kl_loss.item(), test_loss.item(), mi.item()))
+        print("CE Loss: {} KL Loss: {} Test Loss: {}".format(ce_loss.item(), kl_loss.item(), test_loss.item()))
     return model
 
 
